@@ -8,6 +8,7 @@ import threading
 import signal
 import os
 import pwd, grp
+import logging
 
 
 server_socket = None
@@ -64,20 +65,20 @@ def handle_connection(conn, addr):
 
         all_data += data
 
-    print('[%s]:%d : %d bytes received' % (addr[0], addr[1], len(all_data)))
+    logging.info('[%s]:%d : %d bytes received' % (addr[0], addr[1], len(all_data)))
 
     ix_io_url = ix_io_post(all_data)
 
-    print('[%s]:%d : Pasted to %s' % (addr[0], addr[1], ix_io_url))
+    logging.info('[%s]:%d : Pasted to %s' % (addr[0], addr[1], ix_io_url))
 
     conn.sendall(bytearray('%s\n' % ix_io_url, "utf_8"))
 
     conn.close()
-    print('[%s]:%d : Connection closed' % (addr[0], addr[1]))
+    logging.info('[%s]:%d : Connection closed' % (addr[0], addr[1]))
 
 
 def start_server(port, host=''):
-    print('Starting TCP server on %s:%d...' % (host, port))
+    logging.info('Starting TCP server on %s:%d...' % (host, port))
 
     global server_socket
 
@@ -87,25 +88,25 @@ def start_server(port, host=''):
         server_socket.bind((host, port))
 
     except OSError as err:
-        print('Bind failed: [Errno %d] %s' % (err.errno, err.strerror))
+        logging.error('Bind failed: [Errno %d] %s' % (err.errno, err.strerror))
         sys.exit()
 
     if os.getuid() == 0:
-        print('Port bound, dropping privileges...')
+        logging.info('Port bound, dropping privileges...')
         try:
             drop_privileges()
 
         except Exception as e:
-            print('Error while trying to drop privileges: %s\nBetter safe than sorry, so let\'s stop right here.' % e.message)
+            logging.error('Error while trying to drop privileges: %s\nBetter safe than sorry, so let\'s stop right here.' % e.message)
             sys.exit()
 
     server_socket.listen(10)
-    print('Now listening.')
+    logging.info('Now listening.')
 
     while True:
         # wait to accept a connection - blocking call
         conn, addr = server_socket.accept()
-        print('[%s]:%d : Connection accepted' % (addr[0], addr[1]))
+        logging.info('[%s]:%d : Connection accepted' % (addr[0], addr[1]))
 
         threading.Thread(
                 target=handle_connection,
@@ -117,15 +118,15 @@ def start_server(port, host=''):
 
 
 def exit_gracefully(signal_number, stack_frame):
-    print('Received signal %d, preparing to exit.' % signal_number)
+    logging.info('Received signal %d, preparing to exit.' % signal_number)
 
     global server_socket
 
     if server_socket is not None:
-        print('Closing server socket.')
+        logging.info('Closing server socket.')
         server_socket.close()
 
-    print('Terminating now.')
+    logging.info('Terminating now.')
 
     sys.exit(0)
 
