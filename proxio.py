@@ -65,20 +65,20 @@ def handle_connection(conn, addr):
 
         all_data += data
 
-    logging.info('[%s]:%d : %d bytes received' % (addr[0], addr[1], len(all_data)))
+    logging.getLogger('[%s]:%d' % (addr[0], addr[1])).info('%d bytes received' % len(all_data))
 
     ix_io_url = ix_io_post(all_data)
 
-    logging.info('[%s]:%d : Pasted to %s' % (addr[0], addr[1], ix_io_url))
+    logging.getLogger('[%s]:%d' % (addr[0], addr[1])).info('Pasted to %s' % ix_io_url)
 
     conn.sendall(bytearray('%s\n' % ix_io_url, "utf_8"))
 
     conn.close()
-    logging.info('[%s]:%d : Connection closed' % (addr[0], addr[1]))
+    logging.getLogger('[%s]:%d' % (addr[0], addr[1])).info('Connection closed')
 
 
 def start_server(port, host=''):
-    logging.info('Starting TCP server on %s:%d...' % (host, port))
+    logging.getLogger('proxio').info('Starting TCP server on %s:%d...' % (host, port))
 
     global server_socket
 
@@ -88,16 +88,16 @@ def start_server(port, host=''):
         server_socket.bind((host, port))
 
     except OSError as err:
-        logging.error('Bind failed: [Errno %d] %s' % (err.errno, err.strerror))
+        logging.getLogger('proxio').error('Bind failed: [Errno %d] %s' % (err.errno, err.strerror))
         sys.exit(err.errno)
 
     if os.getuid() == 0:
-        logging.info('Port bound, dropping privileges...')
+        logging.getLogger('proxio').info('Port bound, dropping privileges...')
         try:
             drop_privileges()
 
         except Exception as e:
-            logging.error('Error while trying to drop privileges: %s\nBetter safe than sorry, so let\'s stop right here.' % e.message)
+            logging.getLogger('proxio').error('Error while trying to drop privileges: %s\nBetter safe than sorry, so let\'s stop right here.' % e.message)
             try:
                 sys.exit(e.errno)
             except AttributeError:
@@ -105,12 +105,12 @@ def start_server(port, host=''):
                 sys.exit(-1)
 
     server_socket.listen(10)
-    logging.info('Now listening.')
+    logging.getLogger('proxio').info('Now listening.')
 
     while True:
         # wait to accept a connection - blocking call
         conn, addr = server_socket.accept()
-        logging.info('[%s]:%d : Connection accepted' % (addr[0], addr[1]))
+        logging.getLogger('[%s]:%d' % (addr[0], addr[1])).info('Connection accepted')
 
         threading.Thread(
                 target=handle_connection,
@@ -122,17 +122,35 @@ def start_server(port, host=''):
 
 
 def exit_gracefully(signal_number, stack_frame):
-    logging.info('Received signal %d, preparing to exit.' % signal_number)
+    logging.getLogger('proxio').info('Received signal %d, preparing to exit.' % signal_number)
 
     global server_socket
 
     if server_socket is not None:
-        logging.info('Closing server socket.')
+        logging.getLogger('proxio').info('Closing server socket.')
         server_socket.close()
 
-    logging.info('Terminating now.')
+    logging.getLogger('proxio').info('Terminating now.')
 
     sys.exit(0)
+
+
+def configure_logging(verbose=False):
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+
+    log_formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s: %(message)s', '%b %e %H:%M:%S')
+
+    stderr_logger = logging.StreamHandler(sys.stderr)
+    stderr_logger.setLevel(logging.WARNING)
+    stderr_logger.setFormatter(log_formatter)
+    root_logger.addHandler(stderr_logger)
+
+    if verbose:
+        stdout_logger = logging.StreamHandler(sys.stdout)
+        stdout_logger.setLevel(logging.INFO)
+        stdout_logger.setFormatter(log_formatter)
+        root_logger.addHandler(stdout_logger)
 
 
 def main():
@@ -140,9 +158,12 @@ def main():
     signal.signal(signal.SIGTERM, exit_gracefully)
 
     parser = argparse.ArgumentParser(description='Accepts data on a TCP port and forwards it to http://ix.io/')
+    parser.add_argument('-v', '--verbose', action='store_true')
     parser.add_argument('-p', '--port', type=portnumber, required=True)
 
     args = parser.parse_args()
+
+    configure_logging(args.verbose)
 
     start_server(args.port)
 
