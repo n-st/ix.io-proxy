@@ -9,6 +9,7 @@ import signal
 import os
 import pwd, grp
 import logging
+import logging.handlers
 
 
 server_socket = None
@@ -135,7 +136,7 @@ def exit_gracefully(signal_number, stack_frame):
     sys.exit(0)
 
 
-def configure_logging(verbose=False):
+def configure_logging(to_syslog=False, verbose=False):
     class NoWarningOrHigherFilter(logging.Filter):
         def filter(self, record):
             return not record.levelno > logging.WARNING
@@ -143,19 +144,33 @@ def configure_logging(verbose=False):
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
 
-    log_formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s: %(message)s', '%b %e %H:%M:%S')
+    if to_syslog:
+        log_formatter = logging.Formatter('%(levelname)s - %(name)s: %(message)s')
 
-    stderr_logger = logging.StreamHandler(sys.stderr)
-    stderr_logger.setLevel(logging.WARNING)
-    stderr_logger.setFormatter(log_formatter)
-    root_logger.addHandler(stderr_logger)
+        syslog_logger = logging.handlers.SysLogHandler('/dev/log')
+        syslog_logger.setFormatter(log_formatter)
 
-    if verbose:
-        stdout_logger = logging.StreamHandler(sys.stdout)
-        stdout_logger.setLevel(logging.INFO)
-        stdout_logger.setFormatter(log_formatter)
-        stdout_logger.addFilter(NoWarningOrHigherFilter())
-        root_logger.addHandler(stdout_logger)
+        if verbose:
+            syslog_logger.setLevel(logging.INFO)
+        else:
+            syslog_logger.setLevel(logging.WARNING)
+
+        root_logger.addHandler(syslog_logger)
+
+    else:
+        log_formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s: %(message)s', '%b %e %H:%M:%S')
+
+        stderr_logger = logging.StreamHandler(sys.stderr)
+        stderr_logger.setLevel(logging.WARNING)
+        stderr_logger.setFormatter(log_formatter)
+        root_logger.addHandler(stderr_logger)
+
+        if verbose:
+            stdout_logger = logging.StreamHandler(sys.stdout)
+            stdout_logger.setLevel(logging.INFO)
+            stdout_logger.setFormatter(log_formatter)
+            stdout_logger.addFilter(NoWarningOrHigherFilter())
+            root_logger.addHandler(stdout_logger)
 
 
 def main():
@@ -164,11 +179,12 @@ def main():
 
     parser = argparse.ArgumentParser(description='Accepts data on a TCP port and forwards it to http://ix.io/')
     parser.add_argument('-v', '--verbose', action='store_true')
+    parser.add_argument('--syslog', action='store_true', help='Send log messages to syslog instead of stdout/stderr')
     parser.add_argument('-p', '--port', type=portnumber, required=True)
 
     args = parser.parse_args()
 
-    configure_logging(args.verbose)
+    configure_logging(args.syslog, args.verbose)
 
     start_server(args.port)
 
