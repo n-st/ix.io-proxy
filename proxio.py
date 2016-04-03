@@ -40,9 +40,16 @@ def handle_connection(conn, addr):
 
         all_data += data
 
-    print("%d bytes received" % len(all_data))
+    print('[%s]:%d : %d bytes received' % (addr[0], addr[1], len(all_data)))
+
+    ix_io_url = ix_io_post(all_data)
+
+    print('[%s]:%d : Pasted to %s' % (addr[0], addr[1], ix_io_url))
+
+    conn.sendall(bytearray('%s\n' % ix_io_url, "utf_8"))
 
     conn.close()
+    print('[%s]:%d : Connection closed' % (addr[0], addr[1]))
 
 
 def start_server(port, host=''):
@@ -65,7 +72,7 @@ def start_server(port, host=''):
     while True:
         # wait to accept a connection - blocking call
         conn, addr = server_socket.accept()
-        print('Connected with ' + addr[0] + ':' + str(addr[1]))
+        print('[%s]:%d : Connection accepted' % (addr[0], addr[1]))
 
         threading.Thread(
                 target=handle_connection,
