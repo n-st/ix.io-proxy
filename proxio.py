@@ -6,6 +6,8 @@ import socket
 import sys
 import threading
 import signal
+import os
+import pwd, grp
 
 
 server_socket = None
@@ -27,6 +29,28 @@ def portnumber(value):
          raise argparse.ArgumentTypeError("'%s' is not a valid port number (should be an integer between 1 and 65535)" % value)
 
     return ivalue
+
+
+def drop_privileges(uid_name='nobody', gid_name='nogroup'):
+    """ Source: http://stackoverflow.com/a/2699996/1114687 """
+
+    if os.getuid() != 0:
+        # We're not root, so no need to drop privileges
+        return
+
+    # Get the uid/gid from the name
+    running_uid = pwd.getpwnam(uid_name).pw_uid
+    running_gid = grp.getgrnam(gid_name).gr_gid
+
+    # Remove group privileges
+    os.setgroups([])
+
+    # Try setting the new uid/gid
+    os.setgid(running_gid)
+    os.setuid(running_uid)
+
+    # Ensure a very conservative umask
+    old_umask = os.umask(0o077)
 
 
 def handle_connection(conn, addr):
@@ -65,6 +89,15 @@ def start_server(port, host=''):
     except OSError as err:
         print('Bind failed: [Errno %d] %s' % (err.errno, err.strerror))
         sys.exit()
+
+    if os.getuid() == 0:
+        print('Port bound, dropping privileges...')
+        try:
+            drop_privileges()
+
+        except Exception as e:
+            print('Error while trying to drop privileges: %s\nBetter safe than sorry, so let\'s stop right here.' % e.message)
+            sys.exit()
 
     server_socket.listen(10)
     print('Now listening.')
