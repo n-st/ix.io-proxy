@@ -97,7 +97,7 @@ def start_server(port, host=''):
             drop_privileges()
 
         except Exception as e:
-            logging.getLogger('proxio').error('Error while trying to drop privileges: %s\nBetter safe than sorry, so let\'s stop right here.' % e.message)
+            logging.getLogger('proxio').error('Error while trying to drop privileges: \'%s\'. Better safe than sorry, so let\'s stop right here.' % str(e))
             try:
                 sys.exit(e.errno)
             except AttributeError:
