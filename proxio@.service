@@ -1,0 +1,13 @@
+[Unit]
+Description=ix.io proxy on port %I
+Requires=network.target
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/opt/proxio/proxio.py -v -p %I
+KillMode=mixed
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
