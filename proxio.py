@@ -89,7 +89,7 @@ def start_server(port, host=''):
 
     except OSError as err:
         logging.error('Bind failed: [Errno %d] %s' % (err.errno, err.strerror))
-        sys.exit()
+        sys.exit(err.errno)
 
     if os.getuid() == 0:
         logging.info('Port bound, dropping privileges...')
@@ -98,7 +98,11 @@ def start_server(port, host=''):
 
         except Exception as e:
             logging.error('Error while trying to drop privileges: %s\nBetter safe than sorry, so let\'s stop right here.' % e.message)
-            sys.exit()
+            try:
+                sys.exit(e.errno)
+            except AttributeError:
+                # The exception didn't have an errno
+                sys.exit(-1)
 
     server_socket.listen(10)
     logging.info('Now listening.')
