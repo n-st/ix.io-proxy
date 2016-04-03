@@ -136,6 +136,10 @@ def exit_gracefully(signal_number, stack_frame):
 
 
 def configure_logging(verbose=False):
+    class NoWarningOrHigherFilter(logging.Filter):
+        def filter(self, record):
+            return not record.levelno > logging.WARNING
+
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
 
@@ -150,6 +154,7 @@ def configure_logging(verbose=False):
         stdout_logger = logging.StreamHandler(sys.stdout)
         stdout_logger.setLevel(logging.INFO)
         stdout_logger.setFormatter(log_formatter)
+        stdout_logger.addFilter(NoWarningOrHigherFilter())
         root_logger.addHandler(stdout_logger)
 
 
